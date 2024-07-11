@@ -26,10 +26,9 @@ namespace Server
 
         public void ConfigureServices(IServiceCollection services)
         {
-            
             services.AddDbContext<SportStoreDbContext>(options =>
             {
-                options.UseSqlServer(Configuration.GetConnectionString("SqlDatabase"));
+                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
                 if (Environment.IsDevelopment())
                 {
                     options.EnableDetailedErrors();
