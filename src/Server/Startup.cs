@@ -10,6 +10,7 @@ using Persistence;
 using Persistence.Triggers;
 using Services.Products;
 using Shared.Products;
+using System.Data.SqlClient;
 
 namespace Server
 {
@@ -40,11 +41,11 @@ namespace Server
                 }
             });
 
-            services.AddControllersWithViews().AddFluentValidation(config =>
-            {
-                config.RegisterValidatorsFromAssemblyContaining<ProductDto.Mutate.Validator>();
-                config.ImplicitlyValidateChildProperties = true;
-            });
+            // Update FluentValidation configuration
+            services.AddValidatorsFromAssemblyContaining<ProductDto.Mutate.Validator>();
+            services.AddFluentValidationAutoValidation().AddFluentValidationClientsideAdapters();
+
+            services.AddControllersWithViews();
             services.AddSwaggerGen(c =>
             {
                 c.CustomSchemaIds(x => $"{x.DeclaringType.Name}.{x.Name}");
