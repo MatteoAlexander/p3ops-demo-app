@@ -61,15 +61,6 @@ pipeline {
             }
         }
 
-
-        stage('Add EF Core Design Package') {
-            steps {
-                script {
-                    sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Server && dotnet add package Microsoft.EntityFrameworkCore.Design --version 6.0.0"'
-                }
-            }
-        }
-
         stage('Build in dotnet6-container') {
             steps {
                 echo 'Building .NET project...'
