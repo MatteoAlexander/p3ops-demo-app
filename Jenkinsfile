@@ -54,14 +54,6 @@ pipeline {
             }
         }
 
-        stage('Verify copied files') {
-            steps {
-                script {
-                    sh 'docker exec dotnet6-container ls -l /p3ops-demo-app'
-                }
-            }
-        }
-
         stage('Restore Dependencies') {
             steps {
                 echo 'Restoring .NET dependencies...'
