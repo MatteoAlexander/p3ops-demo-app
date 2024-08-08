@@ -1,6 +1,18 @@
 pipeline {
     agent any
 
+    environment {
+        CONTAINER_NAME = 'dotnet6-container'  // Naam van de bestaande container
+        APP_PATH = 'p3ops-demo-app'
+        PROJECT_PATH = 'src/Server/Server.csproj'
+        PUBLISH_PATH = 'publish'
+        
+        // Zet de omgevingsvariabelen voor de container
+        DOTNET_ConnectionStrings__SqlDatabase = "Server=sql-server-container;Database=SportStore;User=SA;Password=SQLcontainer1;MultipleActiveResultSets=true"
+        DOTNET_ENVIRONMENT = 'Production'
+    }
+
+
     stages {
         stage('Delete REPO') {
             steps {
@@ -37,7 +49,7 @@ pipeline {
         stage('Copy files to dotnet6-container') {
             steps {
                 script {
-                    sh 'docker cp /var/jenkins_home/workspace/dotnet/p3ops-demo-app dotnet6-container:/p3ops-demo-app'
+                    sh 'docker cp p3ops-demo-app dotnet6-container:'
                 }
             }
         }
@@ -50,18 +62,13 @@ pipeline {
             }
         }
 
-        stage('Install Node.js and npm') {
+        stage('Restore Dependencies') {
             steps {
-                script {
-                    sh 'docker exec dotnet6-container apt-get update'
-                    sh 'docker exec dotnet6-container apt-get install -y nodejs npm'
-
-                    // Assuming you need to install and build in the Client directory
-                    sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Client && npm install tailwindcss@2.2.19 --legacy-peer-deps"'
-                    sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Client && npx tailwindcss build"'
-                }
+                echo 'Restoring .NET dependencies...'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet restore ${PROJECT_PATH}"'
             }
         }
+
 
         stage('Add EF Core Design Package') {
             steps {
@@ -73,58 +80,37 @@ pipeline {
 
         stage('Build in dotnet6-container') {
             steps {
-                sh 'docker exec dotnet6-container dotnet restore /p3ops-demo-app/src/Server/Server.csproj'
-                sh 'docker exec dotnet6-container dotnet build /p3ops-demo-app/src/Server/Server.csproj'
+                echo 'Building .NET project...'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet build ${PROJECT_PATH} -c Release -o /app/build"'
             }
         }
-        stage('Test SQL Server connection') {
-            steps {
-                script {
-                    sh '''
-                    docker exec dotnet6-container bash -c "
-                    apt-get update && apt-get install -y iputils-ping net-tools netcat-openbsd &&
-                    ping -c 4 172.17.0.3 &&
-                    nc -zv 172.17.0.3 1433 || echo 'Unable to connect to SQL Server via netcat' &&
-                    apt-get install -y curl apt-transport-https &&
-                    curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - &&
-                    curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list &&
-                    apt-get update &&
-                    ACCEPT_EULA=Y apt-get install -y msodbcsql17 &&
-                    ACCEPT_EULA=Y apt-get install -y mssql-tools &&
-                    echo 'export PATH=\\"\\$PATH:/opt/mssql-tools/bin\\"' >> ~/.bashrc &&
-                    source ~/.bashrc &&
-                    sleep 5 &&
-                    sqlcmd -S 172.17.0.3,1433 -U YourUsername -P YourPassword -Q \\"SELECT 1\\" || echo 'Unable to connect to SQL Server via sqlcmd'"
-                    '''
-                }
-            }
-        }
-
-       stage('Fill database SQL Server') {
-    steps {
-        script {
-            def toolInstalled = sh(script: 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Server && dotnet tool list -g | grep dotnet-ef"', returnStatus: true)
-
-            if (toolInstalled != 0) {
-                echo 'Installing dotnet-ef tool...'
-                sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Server && dotnet tool install --global dotnet-ef --version 6.0.0"'
-            } else {
-                echo 'dotnet-ef tool is already installed.'
-            }
-
-            sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Server && export PATH=$PATH:/root/.dotnet/tools"'
-            sh 'docker exec dotnet6-container bash -c "cd /p3ops-demo-app/src/Server && ~/.dotnet/tools/dotnet-ef database update"'
-        }
-    }
-}
 
         stage('Publish and start app') {
             steps {
-                script {
-                    sh 'docker exec dotnet6-container dotnet publish /p3ops-demo-app/src/Server/Server.csproj -c Release -o publish'
-                    sh 'docker exec dotnet6-container bash -c "cd publish && dotnet Server.dll"'
-                }
+                echo 'Publishing .NET application...'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet publish ${PROJECT_PATH} -c Release -o ${PUBLISH_PATH}"'
+            }
+
+        }
+     stage('Run Application') {
+            steps {
+        echo 'Running the .NET application...'
+        sh """
+            docker exec ${CONTAINER_NAME} bash -c '
+            export DOTNET_ConnectionStrings__SqlDatabase="${DOTNET_ConnectionStrings__SqlDatabase}" &&
+            export DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT}" &&
+            cd ${PUBLISH_PATH} &&
+            nohup dotnet Server.dll > /dev/null 2>&1 &
+            '
+        """
             }
         }
     }
+
+    post {
+        always {
+            echo 'Cleaning up...'
+            sh 'docker logout'
+        }
+     }
 }
