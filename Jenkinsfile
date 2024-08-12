@@ -12,7 +12,6 @@ pipeline {
         DOTNET_ENVIRONMENT = 'Production'
     }
 
-
     stages {
         stage('Delete REPO') {
             steps {
@@ -49,7 +48,7 @@ pipeline {
         stage('Copy files to dotnet6-container') {
             steps {
                 script {
-                    sh 'docker cp p3ops-demo-app dotnet6-container:'
+                    sh 'docker cp p3ops-demo-app dotnet6-container:/app'
                 }
             }
         }
@@ -57,41 +56,42 @@ pipeline {
         stage('Restore Dependencies') {
             steps {
                 echo 'Restoring .NET dependencies...'
-                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet restore ${PROJECT_PATH}"'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/p3ops-demo-app && dotnet restore ${PROJECT_PATH}"'
             }
         }
 
         stage('Build in dotnet6-container') {
             steps {
                 echo 'Building .NET project...'
-                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet build ${PROJECT_PATH} -c Release -o /app/build"'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/p3ops-demo-app && dotnet build ${PROJECT_PATH} -c Release -o /app/build"'
             }
         }
 
         stage('Publish and start app') {
             steps {
                 echo 'Publishing .NET application...'
-                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet publish ${PROJECT_PATH} -c Release -o ${PUBLISH_PATH}"'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/p3ops-demo-app && dotnet publish ${PROJECT_PATH} -c Release -o ${PUBLISH_PATH}"'
             }
+        }
 
-        }
-     stage('Run Application') {
+        stage('Run Application') {
             steps {
-        echo 'Running the .NET application...'
-        sh """
-            docker exec ${CONTAINER_NAME} bash -c '
-            export DOTNET_ConnectionStrings__SqlDatabase="${DOTNET_ConnectionStrings__SqlDatabase}" &&
-            export DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT}" &&
-            cd ${PUBLISH_PATH} &&
-            nohup dotnet Server.dll > /dev/null 2>&1 &
-            '
-        """
+                echo 'Running the .NET application...'
+                sh """
+                    docker exec ${CONTAINER_NAME} bash -c '
+                    export DOTNET_ConnectionStrings__SqlDatabase="${DOTNET_ConnectionStrings__SqlDatabase}" &&
+                    export DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT}" &&
+                    cd ${PUBLISH_PATH} &&
+                    nohup dotnet Server.dll > /dev/null 2>&1 &
+                    '
+                """
             }
         }
-    stage('Test app') {
+
+        stage('Test app') {
             steps {
                 echo 'Running tests'
-                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/${APP_PATH} && dotnet test tests/Domain.Tests/Domain.Tests.csproj"'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/p3ops-demo-app && dotnet test tests/Domain.Tests/Domain.Tests.csproj"'
             }
         }
     }
@@ -101,5 +101,5 @@ pipeline {
             echo 'Cleaning up...'
             sh 'docker logout'
         }
-     }
+    }
 }
