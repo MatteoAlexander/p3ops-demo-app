@@ -91,7 +91,7 @@ pipeline {
     stage('Test app') {
             steps {
                 echo 'Running tests'
-                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/p3ops-demo-app && dotnet test tests/Domain.Tests/Domain.Tests.csproj"'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "cd /app/${APP_PATH} && dotnet test tests/Domain.Tests/Domain.Tests.csproj"'
             }
         }
     }
