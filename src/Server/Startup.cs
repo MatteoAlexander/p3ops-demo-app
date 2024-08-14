@@ -10,7 +10,7 @@ using Persistence;
 using Persistence.Triggers;
 using Services.Products;
 using Shared.Products;
-using Prometheus
+using Prometheus;
 
 namespace Server
 {
