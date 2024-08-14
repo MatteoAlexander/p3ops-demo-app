@@ -10,7 +10,6 @@ using Persistence;
 using Persistence.Triggers;
 using Services.Products;
 using Shared.Products;
-using Prometheus;
 
 namespace Server
 {
@@ -86,7 +85,6 @@ namespace Server
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapMetrics();
                 endpoints.MapRazorPages();
                 endpoints.MapControllers();
                 endpoints.MapFallbackToFile("index.html");
