@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using Persistence;
 using Persistence.Triggers;
+using Prometheus;
 using Services.Products;
 using Shared.Products;
 
@@ -86,6 +87,7 @@ namespace Server
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapRazorPages();
+                endpoints.MapMetrics();
                 endpoints.MapControllers();
                 endpoints.MapFallbackToFile("index.html");
             });
