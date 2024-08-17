@@ -53,8 +53,26 @@ pipeline {
                 sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet restore ${PROJECT_PATH}"'
             }
         }
-
-
+        stage('Install dotnet-format tool') {
+            steps {
+                echo 'Checking if dotnet-format tool is installed...'
+                script {
+                    def formatToolInstalled = sh(script: 'docker exec ${CONTAINER_NAME} bash -c "~/.dotnet/tools/dotnet-format --version"', returnStatus: true) == 0
+                    if (!formatToolInstalled) {
+                        echo 'Installing dotnet-format tool...'
+                        sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet tool install -g dotnet-format"'
+                    } else {
+                        echo 'dotnet-format tool is already installed.'
+                    }
+                }
+            }
+        }
+        stage('Linting and Formatting') {
+            steps {
+                echo 'Running linting and formatting...'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "~/.dotnet/tools/dotnet-format ${PROJECT_PATH}"'
+            }
+        }
         stage('Build in dotnet6-container') {
             steps {
                 echo 'Building .NET project...'
@@ -67,17 +85,17 @@ pipeline {
                 sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet publish ${PROJECT_PATH} -c Release -o ${PUBLISH_PATH}"'
             }
         }
-     stage('Run Application') {
+        stage('Run Application') {
             steps {
-        echo 'Running the .NET application...'
-        sh """
-            docker exec ${CONTAINER_NAME} bash -c '
-            export DOTNET_ConnectionStrings__SqlDatabase="${DOTNET_ConnectionStrings__SqlDatabase}" &&
-            export DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT}" &&
-            cd ${PUBLISH_PATH} &&
-            nohup dotnet Server.dll > /dev/null 2>&1 &
-            '
-        """
+                echo 'Running the .NET application...'
+                sh """
+                    docker exec ${CONTAINER_NAME} bash -c '
+                    export DOTNET_ConnectionStrings__SqlDatabase="${DOTNET_ConnectionStrings__SqlDatabase}" &&
+                    export DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT}" &&
+                    cd ${PUBLISH_PATH} &&
+                    nohup dotnet Server.dll > /dev/null 2>&1 &
+                    '
+                """
             }
         }
         stage('Test app') {
@@ -86,12 +104,11 @@ pipeline {
                 sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet test ${TEST_PATH}"'
             }
         }
-
     }
     post {
         always {
             echo 'Cleaning up...'
             sh 'docker logout'
         }
-     }
+    }
 }
