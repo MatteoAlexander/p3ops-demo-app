@@ -53,6 +53,12 @@ pipeline {
                 sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet restore ${PROJECT_PATH}"'
             }
         }
+	 stage('Install prometheus-net package') {
+            steps {
+                echo 'Installing prometheus-net package...'
+                sh 'docker exec ${CONTAINER_NAME} bash -c "dotnet add ${PROJECT_PATH} package prometheus-net.AspNetCore"'
+            }
+        }
         stage('Install dotnet-format tool') {
             steps {
                 echo 'Checking if dotnet-format tool is installed...'
